@@ -15,9 +15,7 @@ const ML_API_URL = 'https://api.mercadolibre.com';
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send('Meli Analytics Backend is running');
-});
+
 
 // Authentication Routes
 app.get('/api/auth/url', (req, res) => {
