@@ -26,34 +26,59 @@ interface Props {
 
 export const SalesDashboard: React.FC<Props> = ({ token, userId }) => {
     const [orders, setOrders] = useState<Order[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [targetUserId, setTargetUserId] = useState(userId);
+
+    const fetchOrders = async (idToFetch: string) => {
+        setLoading(true);
+        setError('');
+        try {
+            const response = await api.get(`/orders?access_token=${token}&seller_id=${idToFetch}`);
+            // ML generic search response structure
+            setOrders(response.data.results || []);
+        } catch (err: any) {
+            console.error(err);
+            setError('Failed to fetch orders. Ensure you have permission to view this user\'s data.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const response = await api.get(`/orders?access_token=${token}&seller_id=${userId}`);
-                // ML generic search response structure
-                setOrders(response.data.results || []);
-            } catch (err: any) {
-                console.error(err);
-                setError('Failed to fetch orders');
-            } finally {
-                setLoading(false);
-            }
-        };
-
         if (token && userId) {
-            fetchOrders();
+            setTargetUserId(userId);
+            fetchOrders(userId);
         }
     }, [token, userId]);
 
-    if (loading) return <div>Loading sales...</div>;
-    if (error) return <div style={{ color: 'red' }}>{error}</div>;
+    const handleSearch = () => {
+        if (targetUserId) {
+            fetchOrders(targetUserId);
+        }
+    };
 
     return (
         <div>
-            <h2>Sales Dashboard</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2>Sales Dashboard</h2>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                        type="text"
+                        value={targetUserId}
+                        onChange={(e) => setTargetUserId(e.target.value)}
+                        placeholder="Enter User ID"
+                        style={{ padding: '8px' }}
+                    />
+                    <button onClick={handleSearch} style={{ padding: '8px 16px', cursor: 'pointer' }}>
+                        Search
+                    </button>
+                </div>
+            </div>
+
+            {loading && <div>Loading sales...</div>}
+            {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
+
             <div style={{ display: 'grid', gap: '1rem' }}>
                 {orders.map(order => (
                     <div key={order.id} style={{ border: '1px solid #ddd', padding: '1rem', borderRadius: '8px' }}>
@@ -72,7 +97,7 @@ export const SalesDashboard: React.FC<Props> = ({ token, userId }) => {
                     </div>
                 ))}
             </div>
-            {orders.length === 0 && <p>No orders found.</p>}
+            {!loading && orders.length === 0 && <p>No orders found.</p>}
         </div>
     );
 };
