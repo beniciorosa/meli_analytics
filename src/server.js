@@ -18,82 +18,55 @@ app.use(express.json());
 
 
 
-// Authentication Routes
-app.get('/api/auth/url', (req, res) => {
-  const url = `${ML_AUTH_URL}?response_type=code&client_id=${process.env.ML_CLIENT_ID}&redirect_uri=${process.env.ML_REDIRECT_URI}`;
-  res.json({ url });
-});
+const path = require('path');
 
-app.get('/api/auth/callback', async (req, res) => {
-  const { code } = req.query;
+// Serve static files from frontend/dist
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// Manager Route: Refresh Token -> Get Orders
+app.get('/api/manager/orders', async (req, res) => {
+  const { refresh_token, seller_id } = req.query;
+
+  if (!refresh_token || !seller_id) {
+    return res.status(400).json({ error: 'Missing refresh_token or seller_id' });
+  }
 
   try {
-    const response = await axios.post(ML_TOKEN_URL, querystring.stringify({
-      grant_type: 'authorization_code',
+    // 1. Refresh the Token
+    const tokenResponse = await axios.post(ML_TOKEN_URL, querystring.stringify({
+      grant_type: 'refresh_token',
       client_id: process.env.ML_CLIENT_ID,
       client_secret: process.env.ML_CLIENT_SECRET,
-      code,
-      redirect_uri: process.env.ML_REDIRECT_URI,
+      refresh_token: refresh_token
     }), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
 
-    // In a real app, store tokens in session/db. Sending back to client for demo.
-    // Redirect to frontend with token
-    const { access_token, refresh_token, user_id, expires_in } = response.data;
+    const { access_token, new_refresh_token } = tokenResponse.data;
 
-    // Check environment to determine redirect base
-    // Vercel sets NODE_ENV=production. In prod, we want relative path '/callback'
-    // Locally, we want 'http://localhost:5173/callback'
-    const redirectBase = process.env.NODE_ENV === 'production' ? '/callback' : 'http://localhost:5173/callback';
-
-    res.redirect(`${redirectBase}?access_token=${access_token}&refresh_token=${refresh_token}&user_id=${user_id}&expires_in=${expires_in}`);
-
-  } catch (error) {
-    console.error('Error exchanging token:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to authenticate' });
-  }
-});
-
-// Manual Code Exchange Route
-app.get('/api/auth/exchange', async (req, res) => {
-  const { code } = req.query;
-
-  try {
-    const response = await axios.post(ML_TOKEN_URL, querystring.stringify({
-      grant_type: 'authorization_code',
-      client_id: process.env.ML_CLIENT_ID,
-      client_secret: process.env.ML_CLIENT_SECRET,
-      code,
-      redirect_uri: process.env.ML_REDIRECT_URI,
-    }), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
-
-    res.json(response.data);
-  } catch (error) {
-    console.error('Error exchanging token:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to authenticate', details: error.response?.data });
-  }
-});
-
-// Proxy for Orders
-app.get('/api/orders', async (req, res) => {
-  const { access_token, seller_id } = req.query;
-
-  if (!access_token || !seller_id) {
-    return res.status(400).json({ error: 'Missing access_token or seller_id' });
-  }
-
-  try {
-    const response = await axios.get(`${ML_API_URL}/orders/search?seller=${seller_id}&order.status=paid`, {
+    // 2. Fetch Orders with new Access Token
+    const ordersResponse = await axios.get(`${ML_API_URL}/orders/search?seller=${seller_id}&order.status=paid`, {
       headers: { Authorization: `Bearer ${access_token}` }
     });
-    res.json(response.data);
+
+    // Return orders + new refresh token (so user can update their DB/list)
+    res.json({
+      orders: ordersResponse.data.results,
+      new_refresh_token: new_refresh_token || refresh_token // ML rotates tokens, send back new one
+    });
+
   } catch (error) {
-    console.error('Error fetching orders:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to fetch orders' });
+    console.error('Error in manager flow:', error.response?.data || error.message);
+    res.status(500).json({
+      error: 'Failed to process request',
+      details: error.response?.data
+    });
   }
+});
+
+// Serve Frontend for any other route
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
 
 // Export for Vercel
