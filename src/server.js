@@ -15,14 +15,6 @@ const ML_API_URL = 'https://api.mercadolibre.com';
 app.use(cors());
 app.use(express.json());
 
-
-
-
-const path = require('path');
-
-// Serve static files from frontend/dist
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
-
 // Manager Route: Refresh Token -> Get Orders
 app.get('/api/manager/orders', async (req, res) => {
   const { refresh_token, seller_id } = req.query;
@@ -62,11 +54,6 @@ app.get('/api/manager/orders', async (req, res) => {
       details: error.response?.data
     });
   }
-});
-
-// Serve Frontend for any other route
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
 
 // Export for Vercel
