@@ -42,7 +42,13 @@ app.get('/api/auth/callback', async (req, res) => {
     // In a real app, store tokens in session/db. Sending back to client for demo.
     // Redirect to frontend with token
     const { access_token, refresh_token, user_id, expires_in } = response.data;
-    res.redirect(`http://localhost:5173/callback?access_token=${access_token}&refresh_token=${refresh_token}&user_id=${user_id}&expires_in=${expires_in}`);
+
+    // Check environment to determine redirect base
+    // Vercel sets NODE_ENV=production. In prod, we want relative path '/callback'
+    // Locally, we want 'http://localhost:5173/callback'
+    const redirectBase = process.env.NODE_ENV === 'production' ? '/callback' : 'http://localhost:5173/callback';
+
+    res.redirect(`${redirectBase}?access_token=${access_token}&refresh_token=${refresh_token}&user_id=${user_id}&expires_in=${expires_in}`);
 
   } catch (error) {
     console.error('Error exchanging token:', error.response?.data || error.message);
