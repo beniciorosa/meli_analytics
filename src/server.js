@@ -6,6 +6,14 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const path = require('path');
+
+// Determine correct path for Vercel
+// In Vercel, CWD is usually the project root
+const frontendPath = path.join(process.cwd(), 'frontend', 'dist');
+
+console.log('Serving static files from:', frontendPath);
+app.use(express.static(frontendPath));
 
 // ML Constants
 const ML_AUTH_URL = 'https://auth.mercadolivre.com.br/authorization';
@@ -54,6 +62,11 @@ app.get('/api/manager/orders', async (req, res) => {
       details: error.response?.data
     });
   }
+});
+
+// Serve Frontend for any other route
+app.get('*', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'frontend', 'dist', 'index.html'));
 });
 
 // Export for Vercel
