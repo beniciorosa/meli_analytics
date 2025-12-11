@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const querystring = require('querystring');
-const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -15,9 +14,6 @@ const ML_API_URL = 'https://api.mercadolibre.com';
 
 app.use(cors());
 app.use(express.json());
-
-// Serve static files from frontend/dist
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 
 
@@ -98,11 +94,6 @@ app.get('/api/orders', async (req, res) => {
     console.error('Error fetching orders:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
-});
-
-// Any other request, send index.html (SPA)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
 
 // Export for Vercel
